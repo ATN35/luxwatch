@@ -65,20 +65,19 @@ export default function CheckoutPage() {
     if (!validate()) return
     setSubmitting(true)
 
-    const order = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      status: "confirmed",
-      customer: form,
-      items: [{ name: product.name, qty: 1, unitPrice: product.price }],
-      totals: { amount: product.price, currency: PRODUCT.currency },
-    }
-
     try {
-      localStorage.setItem("luxwatch_last_order", JSON.stringify(order))
-      window.location.href = "/checkout/success"
-    } finally {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email }),
+      })
+      const data = (await res.json()) as { url?: string }
+
+      if (!data.url) throw new Error("Stripe URL missing")
+      window.location.href = data.url
+    } catch {
       setSubmitting(false)
+      alert("Erreur lors de la redirection Stripe. Vérifie tes clés et STRIPE_PRICE_ID.")
     }
   }
 
@@ -93,7 +92,6 @@ export default function CheckoutPage() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* FORMULAIRE */}
           <Card className="border border-[color-mix(in_oklab,var(--border)_60%,transparent)] bg-[color-mix(in_oklab,var(--card)_60%,transparent)]">
             <CardContent className="p-6 sm:p-8">
               <h2 className="text-xl font-semibold mb-4">Informations de livraison</h2>
@@ -111,9 +109,7 @@ export default function CheckoutPage() {
                       className="w-full rounded-md border border-[var(--border)] bg-transparent px-3 py-2 outline-none focus:ring-2 focus:ring-[color-mix(in_oklab,var(--ring)_40%,transparent)]"
                     />
                     {errors[key as keyof FormState] && (
-                      <p className="text-xs text-[var(--primary)]">
-                        {errors[key as keyof FormState]}
-                      </p>
+                      <p className="text-xs text-[var(--primary)]">{errors[key as keyof FormState]}</p>
                     )}
                   </div>
                 ))}
@@ -172,32 +168,28 @@ export default function CheckoutPage() {
               </div>
 
               <div className="mt-6">
-                <Button
-                  size="lg"
-                  className="w-full text-base sm:text-lg py-6"
-                  onClick={placeOrder}
-                  disabled={submitting}
-                >
-                  {submitting ? "Commande en cours..." : "Commander maintenant"}
+                <Button size="lg" className="w-full text-base sm:text-lg py-6" onClick={placeOrder} disabled={submitting}>
+                  {submitting ? "Redirection vers Stripe..." : "Payer maintenant"}
                 </Button>
               </div>
+
+              <p className="text-center text-xs text-[var(--muted-foreground)] mt-4">
+                🔒 Paiement 100% sécurisé (Stripe) • Retour sous 30 jours
+              </p>
             </CardContent>
           </Card>
 
-          {/* RÉCAP */}
           <Card className="border border-[color-mix(in_oklab,var(--border)_60%,transparent)] bg-[color-mix(in_oklab,var(--card)_60%,transparent)]">
             <CardContent className="p-6 sm:p-8">
               <h2 className="text-xl font-semibold mb-4">Récapitulatif</h2>
 
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4">
                 <div>
                   <p className="font-semibold">{product.name}</p>
                   <p className="text-sm text-[var(--muted-foreground)]">Quantité : 1</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-[var(--primary)]">
-                    {product.price.toLocaleString("fr-FR")}€
-                  </p>
+                  <p className="font-semibold text-[var(--primary)]">{product.price.toLocaleString("fr-FR")}€</p>
                   <p className="text-sm text-[var(--muted-foreground)] line-through">
                     {product.oldPrice.toLocaleString("fr-FR")}€
                   </p>
@@ -208,9 +200,7 @@ export default function CheckoutPage() {
 
               <div className="flex justify-between font-semibold text-base">
                 <span>Total</span>
-                <span className="text-[var(--primary)]">
-                  {product.price.toLocaleString("fr-FR")}€
-                </span>
+                <span className="text-[var(--primary)]">{product.price.toLocaleString("fr-FR")}€</span>
               </div>
             </CardContent>
           </Card>
